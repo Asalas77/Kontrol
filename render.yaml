@@ -46,6 +46,20 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      # URL pública de esta misma API — la usa el login social (SSO) para armar el
+      # redirect_uri que se registra en Google/Microsoft. Sin GOOGLE_CLIENT_ID/SECRET ni
+      # MICROSOFT_CLIENT_ID/SECRET, los botones de SSO devuelven un error claro en vez de
+      # romper el arranque (ver OidcSsoProvider).
+      - key: API_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: MICROSOFT_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_CLIENT_SECRET
+        sync: false
       # Correo de aviso al recibir un comentario en "Soporte y comentarios". Sin
       # SMTP_HOST el comentario igual se guarda, solo no se envía el correo (ver
       # SmtpEmailNotifier). SMTP_USER/SMTP_PASS se completan a mano en el dashboard.

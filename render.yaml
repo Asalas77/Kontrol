@@ -86,6 +86,13 @@ services:
     envVars:
       - key: VITE_API_URL
         sync: false
+      # Muestra un botón "Ver demo" en el login que entra con un clic a una cuenta de
+      # demostración — sin estas dos variables el botón simplemente no aparece (ver
+      # LoginPage.tsx). No son credenciales de un usuario real, son públicas a propósito.
+      - key: VITE_DEMO_EMAIL
+        sync: false
+      - key: VITE_DEMO_PASSWORD
+        sync: false
     routes:
       - type: rewrite
         source: /*

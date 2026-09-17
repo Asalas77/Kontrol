@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -58,7 +58,6 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
@@ -74,15 +73,7 @@ export function LoginPage() {
   const demoPassword = import.meta.env.VITE_DEMO_PASSWORD as string | undefined;
   const hasDemo = Boolean(demoEmail && demoPassword);
 
-  // En el ambiente de demo los campos llegan ya completos: no hace falta que el
-  // visitante copie ni pegue nada, solo presionar "Iniciar sesión".
-  useEffect(() => {
-    if (hasDemo) {
-      setValue('email', demoEmail as string);
-      setValue('password', demoPassword as string);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasDemo]);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
@@ -97,6 +88,22 @@ export function LoginPage() {
           ? 'Correo o contraseña incorrectos.'
           : 'No se pudo iniciar sesión. Intenta de nuevo.',
       );
+    }
+  };
+
+  // Entra directo con la cuenta de demostración, sin pasar por el formulario: el
+  // visitante no necesita copiar ni escribir nada.
+  const onDemoClick = async () => {
+    if (!demoEmail || !demoPassword) return;
+    setServerError(null);
+    setIsDemoLoading(true);
+    try {
+      await login({ email: demoEmail, password: demoPassword });
+      navigate('/', { replace: true });
+    } catch {
+      setServerError('No se pudo iniciar sesión con la cuenta de demostración.');
+    } finally {
+      setIsDemoLoading(false);
     }
   };
 
@@ -120,14 +127,24 @@ export function LoginPage() {
             }}
           >
             <ScienceIcon fontSize="small" />
-            <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ minWidth: 0, flexGrow: 1 }}>
               <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-                Ambiente de demostración
+                ¿Solo quieres ver cómo funciona?
               </Typography>
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.9 }}>
-                {demoEmail} · datos ya completados abajo
+                Entra a una cuenta de demostración con un clic
               </Typography>
             </Box>
+            <Button
+              onClick={onDemoClick}
+              disabled={isDemoLoading}
+              variant="contained"
+              color="inherit"
+              size="small"
+              sx={{ color: 'warning.dark', bgcolor: 'common.white', '&:hover': { bgcolor: 'grey.100' } }}
+            >
+              {isDemoLoading ? 'Entrando…' : 'Ver demo'}
+            </Button>
           </Box>
         )}
         <CardContent>

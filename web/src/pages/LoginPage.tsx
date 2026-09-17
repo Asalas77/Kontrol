@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   CardContent,
+  Divider,
   IconButton,
   InputAdornment,
   Link,
@@ -21,7 +22,15 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../context/AuthContext';
 import { AuthBackground } from '../components/AuthBackground';
+import { authApi } from '../api/auth';
+import { GoogleIcon, MicrosoftIcon } from '../components/SsoIcons';
 import { AxiosError } from 'axios';
+
+const SSO_ERROR_MESSAGES: Record<string, string> = {
+  cuenta_no_encontrada:
+    'No existe una cuenta Kontrol con ese correo. Pide a un administrador que te invite.',
+  sso: 'No se pudo iniciar sesión. Intenta de nuevo.',
+};
 
 const schema = z.object({
   email: z
@@ -55,6 +64,9 @@ export function LoginPage() {
 
   const passwordWasReset = (location.state as { passwordReset?: boolean } | null)
     ?.passwordReset;
+
+  const ssoError = new URLSearchParams(location.search).get('error');
+  const ssoErrorMessage = ssoError ? (SSO_ERROR_MESSAGES[ssoError] ?? SSO_ERROR_MESSAGES.sso) : null;
 
   // Solo aparece si el despliegue define estas variables (ej. el entorno de demo en
   // Render) — en un despliegue real nunca se configuran y el botón no se muestra.
@@ -137,6 +149,7 @@ export function LoginPage() {
                   Contraseña actualizada. Inicia sesión con tu nueva contraseña.
                 </Alert>
               )}
+              {ssoErrorMessage && <Alert severity="error">{ssoErrorMessage}</Alert>}
               {serverError && <Alert severity="error">{serverError}</Alert>}
 
               <TextField
@@ -181,6 +194,31 @@ export function LoginPage() {
 
               <Button type="submit" variant="contained" disabled={isSubmitting}>
                 {isSubmitting ? 'Ingresando…' : 'Iniciar sesión'}
+              </Button>
+
+              <Divider>
+                <Typography variant="caption" color="text.secondary">
+                  o
+                </Typography>
+              </Divider>
+
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<GoogleIcon />}
+                href={authApi.ssoLoginUrl('google')}
+                sx={{ borderRadius: 999, justifyContent: 'flex-start', px: 2 }}
+              >
+                Continuar con Google
+              </Button>
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<MicrosoftIcon />}
+                href={authApi.ssoLoginUrl('microsoft')}
+                sx={{ borderRadius: 999, justifyContent: 'flex-start', px: 2 }}
+              >
+                Continuar con Microsoft
               </Button>
 
               <Typography variant="body2" sx={{ textAlign: 'center' }}>

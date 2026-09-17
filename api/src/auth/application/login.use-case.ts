@@ -7,34 +7,21 @@ import {
   PASSWORD_HASHER,
   PasswordHasherPort,
 } from '../domain/ports/password-hasher.port';
-import {
-  REFRESH_TOKEN_REPOSITORY,
-  RefreshTokenRepositoryPort,
-} from '../domain/ports/refresh-token-repository.port';
-import {
-  TOKEN_SERVICE,
-  TokenServicePort,
-} from '../domain/ports/token-service.port';
+import { IssueSessionResult, IssueSessionUseCase } from './issue-session.use-case';
 
 export interface LoginCommand {
   email: string;
   password: string;
 }
 
-export interface LoginResult {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}
+export type LoginResult = IssueSessionResult;
 
 @Injectable()
 export class LoginUseCase {
   constructor(
     @Inject(AUTH_REPOSITORY) private readonly authRepo: AuthRepositoryPort,
-    @Inject(REFRESH_TOKEN_REPOSITORY)
-    private readonly refreshTokens: RefreshTokenRepositoryPort,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasherPort,
-    @Inject(TOKEN_SERVICE) private readonly tokens: TokenServicePort,
+    private readonly issueSession: IssueSessionUseCase,
   ) {}
 
   async execute(command: LoginCommand): Promise<LoginResult> {
@@ -51,30 +38,7 @@ export class LoginUseCase {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const permissions = await this.authRepo.findPermissions(
-      credentials.tenantId,
-      credentials.userId,
-    );
-
-    const accessToken = await this.tokens.issueAccessToken({
-      sub: credentials.userId,
-      tenantId: credentials.tenantId,
-      permissions,
-    });
-
-    const refresh = this.tokens.issueRefreshToken();
-    await this.refreshTokens.save({
-      tenantId: credentials.tenantId,
-      userId: credentials.userId,
-      tokenHash: refresh.tokenHash,
-      expiresAt: refresh.expiresAt,
-    });
-
-    return {
-      accessToken,
-      refreshToken: refresh.token,
-      expiresIn: this.tokens.accessTokenTtlSeconds,
-    };
+    return this.issueSession.execute(credentials.userId, credentials.tenantId);
   }
 }
 

@@ -16,6 +16,7 @@ interface AuthContextValue {
   /** true mientras se resuelve la sesión al cargar la app (refresh silencioso). */
   isLoading: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
+  completeSsoLogin: (accessToken: string) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
 }
@@ -68,6 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
   }, []);
 
+  // El backend ya emitió el access token y dejó la cookie de refresh puesta (misma
+  // sesión que login() de contraseña) — solo falta guardarlo en memoria y traer al usuario.
+  const completeSsoLogin = useCallback(async (accessToken: string) => {
+    setAccessToken(accessToken);
+    const me = await authApi.me();
+    setUser(me);
+  }, []);
+
   const logout = useCallback(async () => {
     await authApi.logout().catch(() => undefined);
     clearSession();
@@ -79,8 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ user, isLoading, login, logout, hasPermission }),
-    [user, isLoading, login, logout, hasPermission],
+    () => ({ user, isLoading, login, completeSsoLogin, logout, hasPermission }),
+    [user, isLoading, login, completeSsoLogin, logout, hasPermission],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

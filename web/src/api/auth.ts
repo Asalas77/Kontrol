@@ -1,5 +1,9 @@
 import { http } from './http';
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+
+export type SsoProvider = 'google' | 'microsoft';
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -58,4 +62,10 @@ export const authApi = {
     http
       .post('/auth/cambiar-contrasena', { currentPassword, newPassword })
       .then(() => undefined),
+
+  /**
+   * No es un fetch: el navegador debe navegar de verdad a esta URL para que el backend
+   * pueda redirigir al proveedor (Google/Microsoft) y luego volver con el código.
+   */
+  ssoLoginUrl: (provider: SsoProvider) => `${API_URL}/auth/sso/${provider}/iniciar`,
 };

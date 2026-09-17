@@ -1,12 +1,11 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { LoginUseCase } from './login.use-case';
+import { SsoLoginUseCase } from './sso-login.use-case';
 import { IssueSessionUseCase } from './issue-session.use-case';
 import {
   AuthCredentials,
   AuthRepositoryPort,
 } from '../domain/ports/auth-repository.port';
 import { RefreshTokenRepositoryPort } from '../domain/ports/refresh-token-repository.port';
-import { PasswordHasherPort } from '../domain/ports/password-hasher.port';
 import { TokenServicePort } from '../domain/ports/token-service.port';
 
 const CREDENTIALS: AuthCredentials = {
@@ -59,18 +58,6 @@ class FakeRefreshRepo implements RefreshTokenRepositoryPort {
   async revokeAllForUser() {}
 }
 
-class FakeHasher implements PasswordHasherPort {
-  verifyCalls: string[] = [];
-
-  async hash(plain: string) {
-    return `hashed:${plain}`;
-  }
-  async verify(hash: string, plain: string) {
-    this.verifyCalls.push(hash);
-    return hash === 'hash-correcto' && plain === 'secreta';
-  }
-}
-
 class FakeTokens implements TokenServicePort {
   readonly accessTokenTtlSeconds = 900;
   issued: Array<{ sub: string; tenantId: string; permissions: string[] }> = [];
@@ -94,81 +81,42 @@ class FakeTokens implements TokenServicePort {
   }
 }
 
-describe('LoginUseCase', () => {
+describe('SsoLoginUseCase', () => {
   let authRepo: FakeAuthRepo;
-  let refreshRepo: FakeRefreshRepo;
-  let hasher: FakeHasher;
-  let tokens: FakeTokens;
-  let useCase: LoginUseCase;
+  let useCase: SsoLoginUseCase;
 
   beforeEach(() => {
     authRepo = new FakeAuthRepo();
-    refreshRepo = new FakeRefreshRepo();
-    hasher = new FakeHasher();
-    tokens = new FakeTokens();
-    const issueSession = new IssueSessionUseCase(authRepo, refreshRepo, tokens);
-    useCase = new LoginUseCase(authRepo, hasher, issueSession);
+    const issueSession = new IssueSessionUseCase(authRepo, new FakeRefreshRepo(), new FakeTokens());
+    useCase = new SsoLoginUseCase(authRepo, issueSession);
   });
 
-  it('emite tokens y persiste solo el hash del refresh', async () => {
-    const result = await useCase.execute({
-      email: 'ana@empresa.test',
-      password: 'secreta',
-    });
+  it('emite sesión para una cuenta existente con email verificado', async () => {
+    const result = await useCase.execute({ email: 'ana@empresa.test', emailVerified: true });
 
     expect(result.accessToken).toBe('access-token');
     expect(result.refreshToken).toBe('refresh-plano');
-    expect(refreshRepo.saved).toEqual([
-      expect.objectContaining({ tokenHash: 'refresh-hash', userId: 'user-1' }),
-    ]);
-    expect(refreshRepo.saved[0]).not.toHaveProperty('token');
   });
 
-  it('firma el tenant y los permisos resueltos en el access token', async () => {
-    authRepo.permissions = ['inspecciones.ver', 'agenda.gestionar'];
-
-    await useCase.execute({ email: 'ana@empresa.test', password: 'secreta' });
-
-    expect(tokens.issued[0]).toEqual({
-      sub: 'user-1',
-      tenantId: 'tenant-1',
-      permissions: ['inspecciones.ver', 'agenda.gestionar'],
-    });
-  });
-
-  it('rechaza una contraseña incorrecta', async () => {
+  it('rechaza si el proveedor no confirmó el email', async () => {
     await expect(
-      useCase.execute({ email: 'ana@empresa.test', password: 'incorrecta' }),
+      useCase.execute({ email: 'ana@empresa.test', emailVerified: false }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('rechaza a un usuario desactivado aunque la contraseña sea correcta', async () => {
+  it('rechaza si no existe una cuenta con ese correo', async () => {
+    authRepo.credentials = null;
+
+    await expect(
+      useCase.execute({ email: 'nadie@empresa.test', emailVerified: true }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('rechaza a un usuario desactivado aunque el email esté verificado', async () => {
     authRepo.credentials = { ...CREDENTIALS, activo: false };
 
     await expect(
-      useCase.execute({ email: 'ana@empresa.test', password: 'secreta' }),
+      useCase.execute({ email: 'ana@empresa.test', emailVerified: true }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
-  });
-
-  it('no revela si el correo existe: mismo error y misma verificación de hash', async () => {
-    authRepo.credentials = null;
-
-    await expect(
-      useCase.execute({ email: 'nadie@empresa.test', password: 'secreta' }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
-
-    // Se verificó igual contra el hash dummy, para no acortar el tiempo de respuesta.
-    expect(hasher.verifyCalls).toHaveLength(1);
-  });
-
-  it('no emite tokens cuando la autenticación falla', async () => {
-    authRepo.credentials = null;
-
-    await expect(
-      useCase.execute({ email: 'nadie@empresa.test', password: 'x' }),
-    ).rejects.toThrow();
-
-    expect(tokens.issued).toHaveLength(0);
-    expect(refreshRepo.saved).toHaveLength(0);
   });
 });

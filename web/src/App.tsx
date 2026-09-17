@@ -7,6 +7,7 @@ import { ThemeModeProvider, useThemeMode } from './context/ThemeModeContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { HomeRedirect } from './routes/HomeRedirect';
 import { LoginPage } from './pages/LoginPage';
+import { SsoCallbackPage } from './pages/SsoCallbackPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CentrosPage } from './pages/CentrosPage';
@@ -133,6 +134,7 @@ function AppShell() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/sso/callback" element={<SsoCallbackPage />} />
               <Route path="/registro" element={<RegisterPage />} />
               <Route path="/olvide-contrasena" element={<OlvideContrasenaPage />} />
               <Route

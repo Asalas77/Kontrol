@@ -1,14 +1,20 @@
 # Blueprint de Render para desplegar Kontrol gratis, solo para pruebas.
 # En render.com: New -> Blueprint -> selecciona este repo -> Render lee este archivo
-# y crea los servicios automáticamente (api, web y landing).
+# y crea los servicios automáticamente (base de datos, api, web y landing).
 #
 # Notas sobre el free tier de Render:
 # - Web Service (api): "duerme" tras ~15 min sin tráfico; la siguiente petición tarda
 #   unos segundos en despertarlo. Normal y gratis siempre.
 # - Static Site (web): nunca duerme, siempre gratis, con HTTPS y dominio *.onrender.com.
-# - Base de datos: Render solo permite una PostgreSQL gratis por cuenta, y esta cuenta ya
-#   tiene otro proyecto usándola. Por eso la base va en Neon (neon.tech) — Postgres
-#   gratuito externo, sin límite de tiempo, sin chocar con el cupo de Render.
+# - Base de datos: Render solo permite una PostgreSQL gratis por cuenta. Si la cuenta que
+#   despliega este blueprint ya tiene otra base gratis, hay que borrar el bloque
+#   `databases` de abajo y volver a apuntar DB_HOST/DB_USER/DB_PASSWORD/DB_NAME a un
+#   Postgres externo (Neon, etc.) con sync:false, como se hacía antes.
+
+databases:
+  - name: kontrol-db
+    plan: free
+    region: oregon
 
 services:
   - type: web
@@ -19,17 +25,27 @@ services:
     dockerContext: ./api
     envVars:
       - key: DB_HOST
-        sync: false
+        fromDatabase:
+          name: kontrol-db
+          property: host
       - key: DB_PORT
-        value: 5432
+        fromDatabase:
+          name: kontrol-db
+          property: port
       - key: DB_USER
-        sync: false
+        fromDatabase:
+          name: kontrol-db
+          property: user
       - key: DB_PASSWORD
-        sync: false
+        fromDatabase:
+          name: kontrol-db
+          property: password
       - key: DB_NAME
-        sync: false
+        fromDatabase:
+          name: kontrol-db
+          property: database
       - key: DB_SSL
-        value: 'true'
+        value: 'false'
       - key: JWT_SECRET
         generateValue: true
       - key: ACCESS_TOKEN_TTL_SECONDS
